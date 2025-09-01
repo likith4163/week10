@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
       - name: order-service-container
-        image: likith07.azurecr.io/order-service:latest
+        image: likith07.azurecr.io/order_service:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 8000
