@@ -118,29 +118,47 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    # Azure login using a Service Principal secret
-    - name: Azure Login
-      uses: azure/login@v1
-      with:
-        creds: ${{ secrets.AZURE_CREDENTIALS }} # Needs to be set as a GitHub Secret (Service Principal JSON)
 
     # Login to Azure Container Registry (ACR)
     - name: Login to Azure Container Registry
-      run: az acr login --name ${{ env.ACR_LOGIN_SERVER }}
+      uses: azure/docker-login@v1
+      with:
+        login-server: ${{ env.ACR_LOGIN_SERVER }}
+        username: ${{ secrets.ACR_USERNAME }} # ACR username stored in GitHub Secrets
+        password: ${{ secrets.ACR_PASSWORD }} # ACR password stored in GitHub Secrets
+    - name: Docker Hub Login
+      run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+         # ---------- Docker Scout (fail on HIGH/CRITICAL) ------
+    
+    - name: Build and Push Product Service Image
+      run: |
+        docker build -t ${{ env.ACR_LOGIN_SERVER }}/product_service:latest ./backend/product_service/
+
+    - name: Build and Push Order Service Image
+      run: |
+        docker build -t ${{ env.ACR_LOGIN_SERVER }}/order_service:latest ./backend/order_service/
+
+    - name: Install Docker Scout
+      run: |
+          curl -sSfL https://raw.githubusercontent.com/docker/scout-cli/main/install.sh \
+          | sh -s -- -b /usr/local/bin
+          docker-scout version
+ 
+    - name: Scan Product image with Docker Scout
+      run: docker-scout cves $ACR_LOGIN_SERVER/product_service:latest --only-severity high,critical --exit-code
+ 
+    - name: Scan Order image with Docker Scout
+      run: docker-scout cves $ACR_LOGIN_SERVER/order_service:latest --only-severity high,critical --exit-code
+
 
     # Build and Push Docker image for Product Service
     - name: Build and Push Product Service Image
       run: |
-        docker build -t ${{ env.ACR_LOGIN_SERVER }}/product_service:latest ./backend/product_service/
         docker push ${{ env.ACR_LOGIN_SERVER }}/product_service:latest
 
     # Build and Push Docker image for Order Service
     - name: Build and Push Order Service Image
       run: |
-        docker build -t ${{ env.ACR_LOGIN_SERVER }}/order_service:latest ./backend/order_service/
         docker push ${{ env.ACR_LOGIN_SERVER }}/order_service:latest
 
     # Logout from Azure for security (runs even if image push fails)
-    - name: Logout from Azure
-      run: az logout
-      if: always()
