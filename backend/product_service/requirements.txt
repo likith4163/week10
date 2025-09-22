@@ -6,3 +6,4 @@ python-multipart
 pydantic
 azure-storage-blob
 httpx
+setuptools>=78.1.1

@@ -7,3 +7,4 @@ pydantic
 azure-storage-blob
 pytest
 httpx
+setuptools>=78.1.1
